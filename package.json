@@ -1,27 +1,29 @@
 {
-  "name": "vector",
-  "version": "0.1.0",
+  "name": "epidemic-sim",
   "private": true,
+  "version": "0.1.0",
+  "description": "Monorepo for the epidemic simulation platform (Next.js web, FastAPI API, Python worker, shared schemas).",
+  "workspaces": [
+    "apps/web",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "next": "15.5.4"
+    "dev:web": "npm run dev --workspace web",
+    "build:web": "npm run build --workspace web",
+    "lint:web": "npm run lint --workspace web",
+    "typecheck:web": "npm run typecheck --workspace web",
+    "dev": "npm-run-all --parallel dev:web",
+    "build": "npm-run-all build:schemas build:web",
+    "build:schemas": "npm run build --workspace @epidemic-sim/shared-schemas",
+    "lint": "npm-run-all lint:schemas lint:web",
+    "lint:schemas": "npm run lint --workspace @epidemic-sim/shared-schemas",
+    "typecheck": "npm-run-all typecheck:schemas typecheck:web",
+    "typecheck:schemas": "npm run typecheck --workspace @epidemic-sim/shared-schemas",
+    "format": "prettier --check .",
+    "format:write": "prettier --write ."
   },
   "devDependencies": {
-    "typescript": "^5",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
-    "eslint": "^9",
-    "eslint-config-next": "15.5.4",
-    "@eslint/eslintrc": "^3"
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3.3.3"
   }
 }

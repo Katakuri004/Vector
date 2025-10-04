@@ -1,0 +1,95 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    command: npm run dev
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: "http://localhost:8000/v1"
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test"
+      CLERK_SECRET_KEY: "sk_test"
+      MAPBOX_TOKEN: "changeme"
+    volumes:
+      - ./apps/web:/app
+      - web-node-modules:/app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: uvicorn epidemic_sim.api.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/epidemic
+      REDIS_URL: redis://redis:6379/0
+      SUPABASE_SERVICE_ROLE_KEY: "supabase_service_role"
+      CLERK_JWKS_URL: "https://clerk.example.com/.well-known/jwks.json"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    volumes:
+      - ./apps/api:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    command: python -m epidemic_sim_worker.runner
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/epidemic
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    volumes:
+      - ./apps/worker:/app
+    depends_on:
+      - redis
+      - db
+
+  redis:
+    image: redis:7.4-alpine
+    ports:
+      - "6379:6379"
+
+  db:
+    image: supabase/postgres:15.1.1.53
+    environment:
+      POSTGRES_DB: epidemic
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  otel-collector:
+    image: otel/opentelemetry-collector:0.102.1
+    volumes:
+      - ./infrastructure/otel-collector-config.yaml:/etc/otelcol/config.yaml
+    command: ["--config=/etc/otelcol/config.yaml"]
+    ports:
+      - "4317:4317"
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    volumes:
+      - ./infrastructure/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+volumes:
+  web-node-modules:
+  postgres-data:
+  grafana-data:

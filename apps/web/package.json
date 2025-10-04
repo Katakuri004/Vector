@@ -1,0 +1,53 @@
+{
+  "name": "web",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Next.js frontend for the epidemic simulation platform",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint app components lib store",
+    "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "^5.4.0",
+    "@epidemic-sim/shared-schemas": "file:../../packages/shared-schemas",
+    "@heroicons/react": "^2.1.5",
+    "@radix-ui/react-dialog": "^1.1.0",
+    "@radix-ui/react-scroll-area": "^1.1.0",
+    "@radix-ui/react-tabs": "^1.1.0",
+    "@sentry/nextjs": "^8.27.0",
+    "@tanstack/react-query": "^5.56.2",
+    "@total-typescript/ts-reset": "^0.5.1",
+    "clsx": "^2.1.1",
+    "mapbox-gl": "^3.4.0",
+    "next": "14.2.13",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-hook-form": "^7.53.0",
+    "recharts": "^2.11.0",
+    "swr": "^2.3.5",
+    "tailwind-merge": "^2.3.0",
+    "zustand": "^4.5.5",
+    "next-themes": "^0.2.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/mapbox-gl": "^2.7.20",
+    "@types/node": "^20.16.10",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "@types/geojson": "^7946.0.14",
+    "autoprefixer": "^10.4.20",
+    "@eslint/js": "^9.14.0",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-security": "^1.7.1",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.13",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.6.2",
+    "@rushstack/eslint-patch": "^1.10.1"
+  }
+}

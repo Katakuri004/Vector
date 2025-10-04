@@ -1,0 +1,571 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Epidemic Simulation API",
+    "version": "0.1.0",
+    "description": "FastAPI backend for the epidemic simulation platform"
+  },
+  "servers": [
+    { "url": "http://localhost:8000" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "ProblemDetail": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" },
+          "correlationId": { "type": "string" },
+          "code": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "errors": { "type": "object", "additionalProperties": true }
+        },
+        "required": ["title", "status", "correlationId", "code", "timestamp"]
+      },
+      "Dataset": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "owner_id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "uri": { "type": "string" },
+          "version": { "type": "string" },
+          "meta": { "type": "object", "additionalProperties": true }
+        },
+        "required": ["id", "owner_id", "name", "type", "uri", "version"]
+      },
+      "Region": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "dataset_id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "geom": { "type": "object" },
+          "population": { "type": "integer" }
+        },
+        "required": ["id", "dataset_id", "name", "geom", "population"]
+      },
+      "Pathogen": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "beta": { "type": "number" },
+          "sigma": { "type": "number" },
+          "gamma": { "type": "number" },
+          "mu": { "type": "number" },
+          "ifr": { "type": "number" },
+          "incubation": { "type": "number" },
+          "seasonality": { "type": "number" },
+          "noise": { "type": "number" }
+        },
+        "required": ["name", "beta", "sigma", "gamma", "mu"]
+      },
+      "EngineCfg": {
+        "type": "object",
+        "properties": {
+          "type": { "enum": ["mechanistic", "learned"] },
+          "version": { "type": "string" },
+          "seed": { "type": "integer" },
+          "dt": { "type": "number" },
+          "horizon": { "type": "integer" }
+        },
+        "required": ["type", "version", "seed", "dt", "horizon"]
+      },
+      "NpiDefinition": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "description": { "type": "string" },
+          "effects": { "type": "object", "additionalProperties": { "type": "number" } },
+          "activation_delay_days": { "type": "integer" }
+        },
+        "required": ["id", "label", "effects"],
+        "additionalProperties": false
+      },
+      "NpiTimelineEntry": {
+        "type": "object",
+        "properties": {
+          "day": { "type": "integer" },
+          "active": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "required": ["day", "active"]
+      },
+      "ScenarioCreateRequest": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "title": { "type": "string" },
+          "region_set": { "type": "string" },
+          "pathogen": { "$ref": "#/components/schemas/Pathogen" },
+          "datasets": {
+            "type": "array",
+            "items": { "type": "string", "format": "uuid" }
+          },
+          "npi_catalog": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/NpiDefinition" }
+          },
+          "npi_timeline": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/NpiTimelineEntry" }
+          },
+          "engine": { "$ref": "#/components/schemas/EngineCfg" }
+        },
+        "required": ["title", "region_set", "pathogen", "datasets", "npi_catalog", "npi_timeline", "engine"]
+      },
+      "Scenario": {
+        "allOf": [
+          { "$ref": "#/components/schemas/ScenarioCreateRequest" },
+          {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "owner_id": { "type": "string", "format": "uuid" }
+            },
+            "required": ["id", "owner_id"]
+          }
+        ]
+      },
+      "Run": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "scenario_id": { "type": "string", "format": "uuid" },
+          "owner_id": { "type": "string", "format": "uuid" },
+          "engine": { "$ref": "#/components/schemas/EngineCfg" },
+          "status": { "enum": ["queued", "running", "completed", "failed", "cancelled"] },
+          "seed": { "type": "integer" },
+          "started_at": { "type": "string", "format": "date-time" },
+          "finished_at": { "type": "string", "format": "date-time" },
+          "metrics_summary": { "type": "object", "additionalProperties": true }
+        },
+        "required": ["id", "scenario_id", "owner_id", "engine", "status", "seed"]
+      },
+      "RunCreateRequest": {
+        "type": "object",
+        "properties": {
+          "scenario_id": { "type": "string", "format": "uuid" },
+          "engine": { "$ref": "#/components/schemas/EngineCfg" },
+          "seed": { "type": "integer" }
+        },
+        "required": ["scenario_id", "engine", "seed"]
+      },
+      "RunFrameSeriesPoint": {
+        "type": "object",
+        "properties": {
+          "regionId": { "type": "string", "format": "uuid" },
+          "S": { "type": "number" },
+          "E": { "type": "number" },
+          "I": { "type": "number" },
+          "R": { "type": "number" },
+          "D": { "type": "number" },
+          "newCases": { "type": "number" },
+          "rt": { "type": "number" }
+        },
+        "required": ["regionId", "S", "E", "I", "R", "D"]
+      },
+      "RunFrame": {
+        "type": "object",
+        "properties": {
+          "runId": { "type": "string", "format": "uuid" },
+          "t": { "type": "integer" },
+          "series": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/RunFrameSeriesPoint" }
+          },
+          "perf": {
+            "type": "object",
+            "properties": {
+              "stepsPerSecond": { "type": "number" },
+              "frameLatencyMs": { "type": "number" }
+            }
+          }
+        },
+        "required": ["runId", "t", "series"]
+      },
+      "PaginatedDatasets": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Dataset" }
+          },
+          "nextCursor": { "type": "string" }
+        },
+        "required": ["items"]
+      },
+      "PaginatedRegions": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Region" }
+          },
+          "nextCursor": { "type": "string" }
+        },
+        "required": ["items"]
+      },
+      "PaginatedScenarios": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Scenario" }
+          },
+          "nextCursor": { "type": "string" }
+        },
+        "required": ["items"]
+      },
+      "PaginatedRuns": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Run" }
+          },
+          "nextCursor": { "type": "string" }
+        },
+        "required": ["items"]
+      },
+      "PaginatedFrames": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/RunFrame" }
+          },
+          "nextCursor": { "type": "string" }
+        },
+        "required": ["items"]
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/v1/health": {
+      "get": {
+        "summary": "Liveness probe",
+        "responses": {
+          "200": {
+            "description": "Service healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/health/ready": {
+      "get": {
+        "summary": "Readiness probe",
+        "responses": {
+          "200": {
+            "description": "Service ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/datasets": {
+      "get": {
+        "summary": "List datasets",
+        "responses": {
+          "200": {
+            "description": "Datasets for the authenticated owner",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaginatedDatasets" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetail" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create dataset",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Dataset" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Dataset created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Dataset" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/regions": {
+      "get": {
+        "summary": "List regions for dataset",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Region collection",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaginatedRegions" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/scenarios": {
+      "get": {
+        "summary": "List scenarios",
+        "responses": {
+          "200": {
+            "description": "Scenarios",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaginatedScenarios" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create scenario",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ScenarioCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Scenario created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Scenario" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/scenarios/{scenarioId}": {
+      "get": {
+        "summary": "Get scenario",
+        "parameters": [
+          {
+            "name": "scenarioId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scenario",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Scenario" }
+              }
+            }
+          },
+          "404": {
+            "description": "Scenario not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetail" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs": {
+      "get": {
+        "summary": "List runs",
+        "responses": {
+          "200": {
+            "description": "Runs",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaginatedRuns" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create run",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RunCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Run enqueued",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Run" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{runId}": {
+      "get": {
+        "summary": "Get run",
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Run" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{runId}/frames": {
+      "get": {
+        "summary": "List frames for run",
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Frames",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaginatedFrames" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{runId}/stream": {
+      "get": {
+        "summary": "Stream frames",
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event stream",
+            "content": {
+              "text/event-stream": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/metrics": {
+      "get": {
+        "summary": "Prometheus metrics",
+        "responses": {
+          "200": {
+            "description": "Metrics",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
